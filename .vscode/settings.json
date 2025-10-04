@@ -1,0 +1,12 @@
+{
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.formatOnSave": true,
+    },
+    "python.testing.pytestArgs": [
+        "src"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "cmake.sourceDirectory": "/home/ZhouZhiqiang/openpi/.venv/lib/python3.11/site-packages/pyarrow/src/arrow/python"
+}
