@@ -65,7 +65,7 @@ def analyze_model(config_name):
         checkpoint_name = config_name  # 通常checkpoint名称与config名称相同
         
         # 构建checkpoint路径
-        checkpoint_path = f"gs://openpi-assets/checkpoints/{checkpoint_name}"
+        checkpoint_path = f"/home/ZhouZhiqiang/openpi/checkpoints/pi05_droid_finetune/my_experiment/19999"
         print(f"3. 尝试下载checkpoint: {checkpoint_path}")
         
         try:

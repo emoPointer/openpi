@@ -78,5 +78,5 @@ class DroidInputs(transforms.DataTransformFn):
 @dataclasses.dataclass(frozen=True)
 class DroidOutputs(transforms.DataTransformFn):
     def __call__(self, data: dict) -> dict:
-        # Only return the first 8 dims.
-        return {"actions": np.asarray(data["actions"][:, :8])}
+        # Only return the first 16 dims.
+        return {"actions": np.asarray(data["actions"][:, :16])}
