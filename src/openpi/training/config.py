@@ -523,7 +523,7 @@ class TrainConfig:
     # device memory will be reduced but training could potentially be slower.
     # eg. if total device is 4 and fsdp devices is 2; then the model will shard to 2 devices and run
     # data parallel between 2 groups of devices.
-    fsdp_devices: int = 2
+    fsdp_devices: int = 4
 
     @property
     def assets_dirs(self) -> pathlib.Path:
@@ -919,7 +919,7 @@ _CONFIGS = [
         ),
         data=LeRobotDROIDDataConfig(
             # Replace with your custom DROID LeRobot dataset repo id.
-            repo_id="your_username/my_dual_arm_dataset",
+            repo_id="your_username/my_dual_arm_dataset_position",
             base_config=DataConfig(prompt_from_task=True),
             # assets=AssetsConfig(
             #     # Important: reuse the original DROID norm stats during fine-tuning!

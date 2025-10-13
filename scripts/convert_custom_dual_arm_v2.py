@@ -13,12 +13,11 @@
 - 兼容OpenPI训练管道
 
 支持格式:
-- droid: 状态=14关节+2夹爪, 动作=14关节速度+2夹爪速度
-- libero: 状态=14关节+2夹爪, 动作=14关节速度
-- aloha_style: 状态=14关节+2夹爪, 动作=14关节速度+2夹爪动作
+- droid: 状态=14关节+2夹爪, 动作=14关节位置+2夹爪位置(下一帧)
+- libero: 状态=14关节+2夹爪, 动作=14关节位置(下一帧)
+- aloha_style: 状态=14关节+2夹爪, 动作=14关节位置+2夹爪位置(下一帧)
 
-aloha_style和droid的夹爪action是由夹爪位置变化计算得到的。
-在.cache/huggingface/lerobot下产生Parquet格式数据
+注意：最后一帧将被舍弃，因为没有下一帧作为action目标
 """
 
 import argparse
@@ -95,28 +94,39 @@ def process_episode_data(hdf5_file_path: str, format_type: str = "droid"):
         assert len(left_gripper_pos) == length, f"左夹爪数据长度不匹配: {len(left_gripper_pos)} vs {length}"
         assert len(right_gripper_pos) == length, f"右夹爪数据长度不匹配: {len(right_gripper_pos)} vs {length}"
         
+        # 舍弃最后一帧（因为没有下一帧作为action）
+        length = length - 1
+        
         # 根据格式类型构建状态和动作
         if format_type == "droid":
             # DROID格式：关节位置和夹爪位置分开存储
-            joint_positions = joint_pos_filtered  # (T, 14) 双臂关节位置
+            joint_positions = joint_pos_filtered[:-1]  # (T-1, 14) 双臂关节位置，移除最后一帧
             gripper_positions = np.concatenate([
-                left_gripper_pos.reshape(-1, 1),   # 1维左夹爪位置
-                right_gripper_pos.reshape(-1, 1)   # 1维右夹爪位置
-            ], axis=1)  # (T, 2)
+                left_gripper_pos[:-1].reshape(-1, 1),   # 1维左夹爪位置，移除最后一帧
+                right_gripper_pos[:-1].reshape(-1, 1)   # 1维右夹爪位置，移除最后一帧
+            ], axis=1)  # (T-1, 2)
             
-            # 动作：关节速度 + 夹爪速度
-            left_gripper_vel = np.gradient(left_gripper_pos)
-            right_gripper_vel = np.gradient(right_gripper_pos)
+            # 动作：下一帧的关节位置 + 下一帧的夹爪位置
+            next_joint_positions = joint_pos_filtered[1:]  # 下一帧的关节位置
+            next_left_gripper = left_gripper_pos[1:]  # 下一帧的左夹爪位置
+            next_right_gripper = right_gripper_pos[1:]  # 下一帧的右夹爪位置
+            
             actions = np.concatenate([
-                joint_vel_filtered,  # 14维关节速度
-                left_gripper_vel.reshape(-1, 1),  # 1维左夹爪速度
-                right_gripper_vel.reshape(-1, 1)  # 1维右夹爪速度
-            ], axis=1)  # (T, 16)
+                next_joint_positions,  # 14维下一帧关节位置
+                next_left_gripper.reshape(-1, 1),  # 1维下一帧左夹爪位置
+                next_right_gripper.reshape(-1, 1)  # 1维下一帧右夹爪位置
+            ], axis=1)  # (T-1, 16)
+            
+            # 同时移除图像数据的最后一帧
+            head_images = head_images[:-1]
+            left_wrist_images = left_wrist_images[:-1]
+            right_wrist_images = right_wrist_images[:-1]
             
             print(f"  DROID格式输出(双臂):")
             print(f"    关节位置维度: {joint_positions.shape[1]} (14关节位置)")
             print(f"    夹爪位置维度: {gripper_positions.shape[1]} (2夹爪位置)")
-            print(f"    动作维度: {actions.shape[1]} (14关节速度 + 2夹爪)")
+            print(f"    动作维度: {actions.shape[1]} (14关节位置 + 2夹爪位置 - 下一帧)")
+            print(f"    数据长度: {length} (舍弃最后一帧)")
             print(f"    数据范围: 关节[{joint_positions.min():.3f}, {joint_positions.max():.3f}], 夹爪[{gripper_positions.min():.3f}, {gripper_positions.max():.3f}], 动作[{actions.min():.3f}, {actions.max():.3f}]")
             print(f"    ✅ 保持原始数据，无归一化处理")
             
@@ -132,42 +142,55 @@ def process_episode_data(hdf5_file_path: str, format_type: str = "droid"):
             }
             
         elif format_type == "libero":
-            # LIBERO格式：状态包含关节+夹爪，动作只包含关节速度
+            # LIBERO格式：状态包含关节+夹爪，动作为下一帧的关节位置
             states = np.concatenate([
-                joint_pos_filtered,  # 14维关节位置
-                left_gripper_pos.reshape(-1, 1),  # 1维左夹爪位置
-                right_gripper_pos.reshape(-1, 1)  # 1维右夹爪位置
-            ], axis=1)  # (T, 16)
+                joint_pos_filtered[:-1],  # 14维关节位置，移除最后一帧
+                left_gripper_pos[:-1].reshape(-1, 1),  # 1维左夹爪位置，移除最后一帧
+                right_gripper_pos[:-1].reshape(-1, 1)  # 1维右夹爪位置，移除最后一帧
+            ], axis=1)  # (T-1, 16)
             
-            actions = joint_vel_filtered  # (T, 14) 仅关节速度
+            actions = joint_pos_filtered[1:]  # (T-1, 14) 下一帧的关节位置
+            
+            # 同时移除图像数据的最后一帧
+            head_images = head_images[:-1]
+            left_wrist_images = left_wrist_images[:-1]
+            right_wrist_images = right_wrist_images[:-1]
             
             print(f"  LIBERO格式输出(双臂):")
             print(f"    状态维度: {states.shape[1]} (14关节位置 + 2夹爪)")
-            print(f"    动作维度: {actions.shape[1]} (14关节速度)")
+            print(f"    动作维度: {actions.shape[1]} (14关节位置 - 下一帧)")
+            print(f"    数据长度: {length} (舍弃最后一帧)")
             print(f"    数据范围: 状态[{states.min():.3f}, {states.max():.3f}], 动作[{actions.min():.3f}, {actions.max():.3f}]")
             print(f"    ✅ 保持原始数据，无归一化处理")
             
         elif format_type == "aloha_style":
-            # ALOHA风格：状态包含关节+夹爪，动作包含关节速度+夹爪动作
+            # ALOHA风格：状态包含关节+夹爪，动作包含下一帧关节位置+夹爪位置
             states = np.concatenate([
-                joint_pos_filtered,  # 14维关节位置
-                left_gripper_pos.reshape(-1, 1),  # 1维左夹爪位置
-                right_gripper_pos.reshape(-1, 1)  # 1维右夹爪位置
-            ], axis=1)  # (T, 16)
+                joint_pos_filtered[:-1],  # 14维关节位置，移除最后一帧
+                left_gripper_pos[:-1].reshape(-1, 1),  # 1维左夹爪位置，移除最后一帧
+                right_gripper_pos[:-1].reshape(-1, 1)  # 1维右夹爪位置，移除最后一帧
+            ], axis=1)  # (T-1, 16)
             
-            # 计算夹爪动作（位置变化）
-            left_gripper_action = np.gradient(left_gripper_pos)
-            right_gripper_action = np.gradient(right_gripper_pos)
+            # 动作：下一帧的关节位置 + 下一帧的夹爪位置
+            next_joint_positions = joint_pos_filtered[1:]  # 下一帧的关节位置
+            next_left_gripper = left_gripper_pos[1:]  # 下一帧的左夹爪位置
+            next_right_gripper = right_gripper_pos[1:]  # 下一帧的右夹爪位置
             
             actions = np.concatenate([
-                joint_vel_filtered,  # 14维关节速度
-                left_gripper_action.reshape(-1, 1),  # 1维左夹爪动作
-                right_gripper_action.reshape(-1, 1)  # 1维右夹爪动作
-            ], axis=1)  # (T, 16)
+                next_joint_positions,  # 14维下一帧关节位置
+                next_left_gripper.reshape(-1, 1),  # 1维下一帧左夹爪位置
+                next_right_gripper.reshape(-1, 1)  # 1维下一帧右夹爪位置
+            ], axis=1)  # (T-1, 16)
+            
+            # 同时移除图像数据的最后一帧
+            head_images = head_images[:-1]
+            left_wrist_images = left_wrist_images[:-1]
+            right_wrist_images = right_wrist_images[:-1]
             
             print(f"  ALOHA风格输出(双臂):")
             print(f"    状态维度: {states.shape[1]} (14关节位置 + 2夹爪)")
-            print(f"    动作维度: {actions.shape[1]} (14关节速度 + 2夹爪)")
+            print(f"    动作维度: {actions.shape[1]} (14关节位置 + 2夹爪 - 下一帧)")
+            print(f"    数据长度: {length} (舍弃最后一帧)")
             print(f"    数据范围: 状态[{states.min():.3f}, {states.max():.3f}], 动作[{actions.min():.3f}, {actions.max():.3f}]")
             print(f"    ✅ 保持原始数据，无归一化处理")
             
@@ -324,51 +347,44 @@ def main(
         
         for i, hdf5_file in enumerate(hdf5_files):
             print(f"\n处理Episode {i+1}/{len(hdf5_files)}: {hdf5_file.name}")
-            try:
-                episode_data = process_episode_data(str(hdf5_file), format_type)
-                episode_length = episode_data['length']
+            
+            episode_data = process_episode_data(str(hdf5_file), format_type)
+            episode_length = episode_data['length']
+            
+            # 使用进度条显示当前episode的处理进度
+            for frame_idx in tqdm(range(episode_length), desc=f"Episode {i+1}", leave=False):
+                head_image = resize_image(episode_data['head_images'][frame_idx])
+                left_wrist_image = resize_image(episode_data['left_wrist_images'][frame_idx])
+                right_wrist_image = resize_image(episode_data['right_wrist_images'][frame_idx])
                 
-                # 使用进度条显示当前episode的处理进度
-                for frame_idx in tqdm(range(episode_length), desc=f"Episode {i+1}", leave=False):
-                    head_image = resize_image(episode_data['head_images'][frame_idx])
-                    left_wrist_image = resize_image(episode_data['left_wrist_images'][frame_idx])
-                    right_wrist_image = resize_image(episode_data['right_wrist_images'][frame_idx])
-                    
-                    if format_type == "droid":
-                        # DROID格式：分离的关节和夹爪位置
-                        frame_data = {
-                            "exterior_image_1_left": head_image,      # 头部相机作为外部相机1
-                            "exterior_image_2_left": right_wrist_image,  # 右手腕相机作为外部相机2
-                            "wrist_image_left": left_wrist_image,     # 左手腕相机
-                            "joint_position": episode_data['joint_positions'][frame_idx].astype(np.float32),
-                            "gripper_position": episode_data['gripper_positions'][frame_idx].astype(np.float32),
-                            "actions": episode_data['actions'][frame_idx].astype(np.float32),
-                            "task": f"{task_description}",
-                        }
-                    else:
-                        # LIBERO/ALOHA格式：合并的状态
-                        frame_data = {
-                            "image": head_image,
-                            "wrist_image": left_wrist_image,
-                            "state": episode_data['states'][frame_idx].astype(np.float32),
-                            "actions": episode_data['actions'][frame_idx].astype(np.float32),
-                            "task": f"{task_description} (execution {i+1})",
-                        }
-                    
-                    dataset.add_frame(frame_data)
+                if format_type == "droid":
+                    # DROID格式：分离的关节和夹爪位置
+                    frame_data = {
+                        "exterior_image_1_left": head_image,      # 头部相机作为外部相机1
+                        "exterior_image_2_left": right_wrist_image,  # 右手腕相机作为外部相机2
+                        "wrist_image_left": left_wrist_image,     # 左手腕相机
+                        "joint_position": episode_data['joint_positions'][frame_idx].astype(np.float32),
+                        "gripper_position": episode_data['gripper_positions'][frame_idx].astype(np.float32),
+                        "actions": episode_data['actions'][frame_idx].astype(np.float32),
+                        "task": f"{task_description}",
+                    }
+                else:
+                    # LIBERO/ALOHA格式：合并的状态
+                    frame_data = {
+                        "image": head_image,
+                        "wrist_image": left_wrist_image,
+                        "state": episode_data['states'][frame_idx].astype(np.float32),
+                        "actions": episode_data['actions'][frame_idx].astype(np.float32),
+                        "task": f"{task_description} (execution {i+1})",
+                    }
                 
-                total_frames += episode_length
-                print(f"  ✅ Episode {i+1} 已保存, 累计帧数: {total_frames}")
-                
-                # 保存当前episode
-                dataset.save_episode()
-            except KeyError as e:
-                print(f"⚠️ 警告: 处理文件 {os.path.basename(hdf5_file)} 时遇到 KeyError: {e}。跳过此文件。")
-                # 可以选择将错误文件记录下来
-                continue  # 跳到循环的下一个文件
-            except Exception as e:
-                print(f"❌ 错误: 处理文件 {os.path.basename(hdf5_file)} 时遇到未知错误: {e}。")
-                continue
+                dataset.add_frame(frame_data)
+            
+            total_frames += episode_length
+            print(f"  ✅ Episode {i+1} 已保存, 累计帧数: {total_frames}")
+            
+            # 保存当前episode
+            dataset.save_episode()
     
     elif mode == "combined":
         print(f"\n🔄 合并模式: 将 {len(hdf5_files)} 个文件合并为1个episode")
