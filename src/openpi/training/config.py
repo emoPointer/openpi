@@ -430,8 +430,8 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
                         "observation/exterior_image_1_left": "exterior_image_1_left",
                         "observation/exterior_image_2_left": "exterior_image_2_left",
                         "observation/wrist_image_left": "wrist_image_left",
-                        "observation/joint_position": "joint_position",
-                        "observation/gripper_position": "gripper_position",
+                        # "observation/joint_position": "joint_position",
+                        # "observation/gripper_position": "gripper_position",
                         "actions": "actions",
                         "prompt": "prompt",
                     }
@@ -440,7 +440,8 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
         )
         # We assume joint *velocity* actions, so we should *not* apply an additional delta transform.
         data_transforms = _transforms.Group(
-            inputs=[droid_policy.DroidInputs(model_type=model_config.model_type)],
+            # inputs=[droid_policy.DroidInputs(model_type=model_config.model_type)],
+            inputs=[],
             outputs=[droid_policy.DroidOutputs()],
         )
         model_transforms = ModelTransformFactory()(model_config)
@@ -938,7 +939,7 @@ _CONFIGS = [
         model=pi0_config.Pi0Config(
             pi05=True,
             action_dim=32,
-            action_horizon=1,
+            action_horizon=64,
         ),
         data=LeRobotDROIDDataConfig(
             # Replace with your custom DROID LeRobot dataset repo id.
