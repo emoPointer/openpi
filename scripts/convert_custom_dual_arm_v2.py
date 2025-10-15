@@ -336,8 +336,8 @@ def main(
         robot_type="dual_arm_robot",
         fps=30,
         features=features,
-        image_writer_threads=4,
-        image_writer_processes=2,
+        image_writer_threads=40,
+        image_writer_processes=20,
     )
     
     # 处理数据
@@ -347,44 +347,51 @@ def main(
         
         for i, hdf5_file in enumerate(hdf5_files):
             print(f"\n处理Episode {i+1}/{len(hdf5_files)}: {hdf5_file.name}")
-            
-            episode_data = process_episode_data(str(hdf5_file), format_type)
-            episode_length = episode_data['length']
-            
-            # 使用进度条显示当前episode的处理进度
-            for frame_idx in tqdm(range(episode_length), desc=f"Episode {i+1}", leave=False):
-                head_image = resize_image(episode_data['head_images'][frame_idx])
-                left_wrist_image = resize_image(episode_data['left_wrist_images'][frame_idx])
-                right_wrist_image = resize_image(episode_data['right_wrist_images'][frame_idx])
+            try:
+                episode_data = process_episode_data(str(hdf5_file), format_type)
+                episode_length = episode_data['length']
                 
-                if format_type == "droid":
-                    # DROID格式：分离的关节和夹爪位置
-                    frame_data = {
-                        "exterior_image_1_left": head_image,      # 头部相机作为外部相机1
-                        "exterior_image_2_left": right_wrist_image,  # 右手腕相机作为外部相机2
-                        "wrist_image_left": left_wrist_image,     # 左手腕相机
-                        "joint_position": episode_data['joint_positions'][frame_idx].astype(np.float32),
-                        "gripper_position": episode_data['gripper_positions'][frame_idx].astype(np.float32),
-                        "actions": episode_data['actions'][frame_idx].astype(np.float32),
-                        "task": f"{task_description}",
-                    }
-                else:
-                    # LIBERO/ALOHA格式：合并的状态
-                    frame_data = {
-                        "image": head_image,
-                        "wrist_image": left_wrist_image,
-                        "state": episode_data['states'][frame_idx].astype(np.float32),
-                        "actions": episode_data['actions'][frame_idx].astype(np.float32),
-                        "task": f"{task_description} (execution {i+1})",
-                    }
+                # 使用进度条显示当前episode的处理进度
+                for frame_idx in tqdm(range(episode_length), desc=f"Episode {i+1}", leave=False):
+                    head_image = resize_image(episode_data['head_images'][frame_idx])
+                    left_wrist_image = resize_image(episode_data['left_wrist_images'][frame_idx])
+                    right_wrist_image = resize_image(episode_data['right_wrist_images'][frame_idx])
+                    
+                    if format_type == "droid":
+                        # DROID格式：分离的关节和夹爪位置
+                        frame_data = {
+                            "exterior_image_1_left": head_image,      # 头部相机作为外部相机1
+                            "exterior_image_2_left": right_wrist_image,  # 右手腕相机作为外部相机2
+                            "wrist_image_left": left_wrist_image,     # 左手腕相机
+                            "joint_position": episode_data['joint_positions'][frame_idx].astype(np.float32),
+                            "gripper_position": episode_data['gripper_positions'][frame_idx].astype(np.float32),
+                            "actions": episode_data['actions'][frame_idx].astype(np.float32),
+                            "task": f"{task_description}",
+                        }
+                    else:
+                        # LIBERO/ALOHA格式：合并的状态
+                        frame_data = {
+                            "image": head_image,
+                            "wrist_image": left_wrist_image,
+                            "state": episode_data['states'][frame_idx].astype(np.float32),
+                            "actions": episode_data['actions'][frame_idx].astype(np.float32),
+                            "task": f"{task_description} (execution {i+1})",
+                        }
+                    
+                    dataset.add_frame(frame_data)
                 
-                dataset.add_frame(frame_data)
-            
-            total_frames += episode_length
-            print(f"  ✅ Episode {i+1} 已保存, 累计帧数: {total_frames}")
-            
-            # 保存当前episode
-            dataset.save_episode()
+                total_frames += episode_length
+                print(f"  ✅ Episode {i+1} 已保存, 累计帧数: {total_frames}")
+                
+                # 保存当前episode
+                dataset.save_episode()
+            except KeyError as e:
+                print(f"⚠️ 警告: 处理文件 {os.path.basename(hdf5_file)} 时遇到 KeyError: {e}。跳过此文件。")
+                # 可以选择将错误文件记录下来
+                continue  # 跳到循环的下一个文件
+            except Exception as e:
+                print(f"❌ 错误: 处理文件 {os.path.basename(hdf5_file)} 时遇到未知错误: {e}。")
+                continue
     
     elif mode == "combined":
         print(f"\n🔄 合并模式: 将 {len(hdf5_files)} 个文件合并为1个episode")

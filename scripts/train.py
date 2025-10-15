@@ -256,7 +256,8 @@ def main(config: _config.TrainConfig):
     )
 
     infos = []
-    for step in pbar:
+    for step in pbar:   #main training loop
+        # print(f"Step {step}, actions mean: {batch[1].mean()}, actions std: {batch[1].std()}")
         with sharding.set_mesh(mesh):
             train_state, info = ptrain_step(train_rng, train_state, batch)
         infos.append(info)

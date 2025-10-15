@@ -14,3 +14,5 @@ uv run scripts/compute_norm_stats.py --config-name tron2_finetune
 CUDA_VISIBLE_DEVICES="0,1,3,4" XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 uv run scripts/train.py tron2_finetune --exp-name=my_experiment3 --overwrite --batch_size=64
 ```
 训练前需要修改fsdp_devices为对应的数量
+CUDA_VISIBLE_DEVICES="5,6" XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 uv run scripts/train.py tron2_finetune_test --exp-name=my_experiment5 --overwrite --batch_size
+=32

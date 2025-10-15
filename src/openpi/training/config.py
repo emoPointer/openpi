@@ -915,21 +915,44 @@ _CONFIGS = [
         model=pi0_config.Pi0Config(
             pi05=True,
             action_dim=32,  # pi05 is trained with 32-dim actions
-            action_horizon=16,
+            action_horizon=64,  # tron2 is trained with 4-step action horizons
         ),
         data=LeRobotDROIDDataConfig(
             # Replace with your custom DROID LeRobot dataset repo id.
             repo_id="your_username/my_dual_arm_dataset_position",
             base_config=DataConfig(prompt_from_task=True),
-            # assets=AssetsConfig(
-            #     # Important: reuse the original DROID norm stats during fine-tuning!
-            #     assets_dir="gs://openpi-assets/checkpoints/pi05_droid/assets",
-            #     asset_id="droid",
-            # ),
+            assets=AssetsConfig(
+                assets_dir="/home/ZhouZhiqiang/openpi/assets/tron2_finetune/your_username",
+                asset_id="my_dual_arm_dataset_position",
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        num_train_steps=30_000,
+        batch_size=64,
+    ),
+    TrainConfig(
+        # This config is for fine-tuning pi05-DROID on a custom (smaller) DROID dataset.
+        # Here, we use LeRobot data format (like for all other fine-tuning examples)
+        # To convert your custom DROID dataset (<10s of hours) to LeRobot format, see examples/droid/convert_droid_data_to_lerobot.py
+        name="tron2_finetune_test",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            action_dim=32,
+            action_horizon=1,
+        ),
+        data=LeRobotDROIDDataConfig(
+            # Replace with your custom DROID LeRobot dataset repo id.
+            repo_id="your_username/my_dual_arm_dataset_position",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(
+                assets_dir="/home/ZhouZhiqiang/openpi/assets/tron2_finetune/your_username",
+                asset_id="my_dual_arm_dataset_position",
+            ),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
         num_train_steps=30_000,
         batch_size=32,
+        wandb_enabled=False,
     ),
     #
     # ALOHA Sim configs. This config is used to demonstrate how to train on a simple simulated environment.
