@@ -413,7 +413,6 @@ class RLDSDroidDataConfig(DataConfigFactory):
             filter_dict_path=self.filter_dict_path,
         )
 
-
 @dataclasses.dataclass(frozen=True)
 class LeRobotDROIDDataConfig(DataConfigFactory):
     """
@@ -430,19 +429,24 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
                         "observation/exterior_image_1_left": "exterior_image_1_left",
                         "observation/exterior_image_2_left": "exterior_image_2_left",
                         "observation/wrist_image_left": "wrist_image_left",
-                        # "observation/joint_position": "joint_position",
-                        # "observation/gripper_position": "gripper_position",
+                        "observation/joint_position": "joint_position",
+                        "observation/gripper_position": "gripper_position",
                         "actions": "actions",
                         "prompt": "prompt",
                     }
                 )
             ]
         )
-        # We assume joint *velocity* actions, so we should *not* apply an additional delta transform.
+
         data_transforms = _transforms.Group(
-            # inputs=[droid_policy.DroidInputs(model_type=model_config.model_type)],
-            inputs=[],
+            inputs=[droid_policy.DroidInputs(model_type=model_config.model_type)],
             outputs=[droid_policy.DroidOutputs()],
+        )
+
+        # add DeltaActions
+        data_transforms = data_transforms.push(
+            inputs=[_transforms.DeltaActions(_transforms.make_bool_mask(14, -2))],
+            outputs=[_transforms.AbsoluteActions(_transforms.make_bool_mask(14, -2))],
         )
         model_transforms = ModelTransformFactory()(model_config)
 
@@ -453,6 +457,54 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
             model_transforms=model_transforms,
         )
 
+@dataclasses.dataclass(frozen=True)
+class VisionOnlyLeRobotDROIDDataConfig(LeRobotDROIDDataConfig):
+    """
+    一个只使用图像的 LeRobot DROID 数据加载器配置，它会移除所有本体感受状态信息。
+    """
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        # 1. 第一个转换：将数据从 LeRobot 的嵌套结构中提取出来，放到顶层。
+        repack_transform = _transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "observation/exterior_image_1_left": "exterior_image_1_left",
+                        "observation/exterior_image_2_left": "exterior_image_2_left",
+                        "observation/wrist_image_left": "wrist_image_left",
+                        "action": "actions",  # 假设 'action' 在数据集的顶层
+                        "prompt": "prompt",
+                    }
+                )
+            ]
+        )
+
+        # 2. 第二个转换：将提升到顶层的图像打包进模型期望的 'images' 字典中。
+        #    注意：我们在这里不再使用 droid_policy.DroidInputs，因为它会创建我们不想要的 state。
+        data_transforms = _transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "exterior_image_1_left": "observation.exterior_image_1_left",
+                        "exterior_image_2_left": "observation.exterior_image_2_left",
+                        "wrist_image_left": "observation.wrist_image_left",
+                    }
+                )
+            ],
+            outputs=[droid_policy.DroidOutputs()],
+        )
+
+        # 3. 获取标准的模型转换（例如 Tokenizer, ResizeImages 等）
+        model_transforms = ModelTransformFactory()(model_config)
+
+        # 4. 组合所有配置并返回
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs, model_config),
+            repack_transforms=repack_transform,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+        )
 
 @dataclasses.dataclass(frozen=True)
 class TrainConfig:
@@ -940,6 +992,7 @@ _CONFIGS = [
             pi05=True,
             action_dim=32,
             action_horizon=64,
+            discrete_state_input=False,
         ),
         data=LeRobotDROIDDataConfig(
             # Replace with your custom DROID LeRobot dataset repo id.
