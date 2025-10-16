@@ -22,7 +22,7 @@ import tyro
 @dataclasses.dataclass(frozen=True)
 class DatasetConfig:
     use_videos: bool = True
-    tolerance_s: float = 0.0001
+    tolerance_s: float = 0.1
     image_writer_processes: int = 10
     image_writer_threads: int = 5
     video_backend: str | None = None

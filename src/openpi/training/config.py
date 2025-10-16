@@ -228,7 +228,7 @@ class SimpleDataConfig(DataConfigFactory):
 class LeRobotAlohaDataConfig(DataConfigFactory):
     # If true, will convert joint dimensions to deltas with respect to the current state before passing to the model.
     # Gripper dimensions will remain in absolute values.
-    use_delta_joint_actions: bool = True
+    use_delta_joint_actions: bool = False
     # If provided, will be injected into the input data if the "prompt" key is not present.
     default_prompt: str | None = None
     # If true, this will convert the joint and gripper values from the standard Aloha space to
@@ -427,7 +427,7 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
                 _transforms.RepackTransform(
                     {
                         "observation/exterior_image_1_left": "exterior_image_1_left",
-                        "observation/exterior_image_2_left": "exterior_image_2_left",
+                        # "observation/exterior_image_2_left": "exterior_image_2_left",
                         "observation/wrist_image_left": "wrist_image_left",
                         "observation/joint_position": "joint_position",
                         "observation/gripper_position": "gripper_position",
@@ -443,11 +443,11 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
             outputs=[droid_policy.DroidOutputs()],
         )
 
-        # add DeltaActions
-        data_transforms = data_transforms.push(
-            inputs=[_transforms.DeltaActions(_transforms.make_bool_mask(14, -2))],
-            outputs=[_transforms.AbsoluteActions(_transforms.make_bool_mask(14, -2))],
-        )
+        # # add DeltaActions
+        # data_transforms = data_transforms.push(
+        #     inputs=[_transforms.DeltaActions(_transforms.make_bool_mask(14, -2))],
+        #     outputs=[_transforms.AbsoluteActions(_transforms.make_bool_mask(14, -2))],
+        # )
         model_transforms = ModelTransformFactory()(model_config)
 
         return dataclasses.replace(
@@ -972,11 +972,11 @@ _CONFIGS = [
         ),
         data=LeRobotDROIDDataConfig(
             # Replace with your custom DROID LeRobot dataset repo id.
-            repo_id="your_username/my_dual_arm_dataset_position",
+            repo_id="your_username/single_arm",
             base_config=DataConfig(prompt_from_task=True),
             assets=AssetsConfig(
                 assets_dir="/home/ZhouZhiqiang/openpi/assets/tron2_finetune/your_username",
-                asset_id="my_dual_arm_dataset_position",
+                asset_id="single_arm",
             ),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
@@ -996,11 +996,11 @@ _CONFIGS = [
         ),
         data=LeRobotDROIDDataConfig(
             # Replace with your custom DROID LeRobot dataset repo id.
-            repo_id="your_username/my_dual_arm_dataset_position",
+            repo_id="your_username/single_arm",
             base_config=DataConfig(prompt_from_task=True),
             assets=AssetsConfig(
                 assets_dir="/home/ZhouZhiqiang/openpi/assets/tron2_finetune/your_username",
-                asset_id="my_dual_arm_dataset_position",
+                asset_id="single_arm",
             ),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),

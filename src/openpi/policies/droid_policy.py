@@ -43,13 +43,13 @@ class DroidInputs(transforms.DataTransformFn):
         # stores as float32 (C,H,W), gets skipped for policy inference
         base_image = _parse_image(data["observation/exterior_image_1_left"])
         wrist_image = _parse_image(data["observation/wrist_image_left"])
-        exterior_image_2 = _parse_image(data["observation/exterior_image_2_left"])
+        # exterior_image_2 = _parse_image(data["observation/exterior_image_2_left"])
 
         match self.model_type:
             case _model.ModelType.PI0 | _model.ModelType.PI05:
                 names = ("base_0_rgb", "left_wrist_0_rgb", "right_wrist_0_rgb")
-                images = (base_image, wrist_image, exterior_image_2)
-                image_masks = (np.True_, np.True_, np.True_)
+                images = (base_image, wrist_image, np.zeros_like(base_image))
+                image_masks = (np.True_, np.True_, np.False_)
             case _model.ModelType.PI0_FAST:
                 names = ("base_0_rgb", "base_1_rgb", "wrist_0_rgb")
                 # We don't mask out padding images for FAST models.
@@ -79,4 +79,4 @@ class DroidInputs(transforms.DataTransformFn):
 class DroidOutputs(transforms.DataTransformFn):
     def __call__(self, data: dict) -> dict:
         # Only return the first 16 dims.
-        return {"actions": np.asarray(data["actions"][:, :16])}
+        return {"actions": np.asarray(data["actions"][:, :8])}
