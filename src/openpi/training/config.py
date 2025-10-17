@@ -352,6 +352,49 @@ class LeRobotLiberoDataConfig(DataConfigFactory):
             data_transforms=data_transforms,
             model_transforms=model_transforms,
         )
+    
+@dataclasses.dataclass(frozen=True)
+class LeRobotARXDataConfig(DataConfigFactory):
+    extra_delta_transform: bool = True
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        repack_transform = _transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "observation/image": "observation/image",
+                        "observation/wrist_image": "observation/wrist_image",
+                        "observation/state": "observation/state",
+                        "actions": "actions",
+                        "prompt": "prompt",
+                    }
+                )
+            ]
+        )
+
+        
+        data_transforms = _transforms.Group(
+            inputs=[libero_policy.LiberoInputs(model_type=model_config.model_type)],
+            outputs=[libero_policy.LiberoOutputs()],
+        )
+
+        
+        if self.extra_delta_transform:
+            delta_action_mask = _transforms.make_bool_mask(6, -1)
+            data_transforms = data_transforms.push(
+                inputs=[_transforms.DeltaActions(delta_action_mask)],
+                outputs=[_transforms.AbsoluteActions(delta_action_mask)],
+            )
+
+        model_transforms = ModelTransformFactory()(model_config) 
+
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs, model_config),
+            repack_transforms=repack_transform,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+        )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -457,54 +500,6 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
             model_transforms=model_transforms,
         )
 
-@dataclasses.dataclass(frozen=True)
-class VisionOnlyLeRobotDROIDDataConfig(LeRobotDROIDDataConfig):
-    """
-    一�?�?使用图像�? LeRobot DROID 数据加载器配�?，它会移除所有本体感受状态信�?�?
-    """
-
-    @override
-    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
-        # 1. �?一�?�?�?：将数据�? LeRobot 的嵌套结构中提取出来，放到顶层�?
-        repack_transform = _transforms.Group(
-            inputs=[
-                _transforms.RepackTransform(
-                    {
-                        "observation/exterior_image_1_left": "exterior_image_1_left",
-                        "observation/exterior_image_2_left": "exterior_image_2_left",
-                        "observation/wrist_image_left": "wrist_image_left",
-                        "action": "actions",  # 假�?? 'action' 在数�?集的顶层
-                        "prompt": "prompt",
-                    }
-                )
-            ]
-        )
-
-        # 2. �?二个�?�?：将提升到顶层的图像打包进模型期望的 'images' 字典�?�?
-        #    注意：我�?在这里不再使�? droid_policy.DroidInputs，因为它会创建我�?不想要的 state�?
-        data_transforms = _transforms.Group(
-            inputs=[
-                _transforms.RepackTransform(
-                    {
-                        "exterior_image_1_left": "observation.exterior_image_1_left",
-                        "exterior_image_2_left": "observation.exterior_image_2_left",
-                        "wrist_image_left": "observation.wrist_image_left",
-                    }
-                )
-            ],
-            outputs=[droid_policy.DroidOutputs()],
-        )
-
-        # 3. 获取标准的模型转�?（例�? Tokenizer, ResizeImages 等）
-        model_transforms = ModelTransformFactory()(model_config)
-
-        # 4. 组合所有配�?并返�?
-        return dataclasses.replace(
-            self.create_base_config(assets_dirs, model_config),
-            repack_transforms=repack_transform,
-            data_transforms=data_transforms,
-            model_transforms=model_transforms,
-        )
 
 @dataclasses.dataclass(frozen=True)
 class TrainConfig:
@@ -1060,6 +1055,36 @@ _CONFIGS = [
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
         num_train_steps=20_000,
+        batch_size=64,
+        # wandb_enabled=False,
+        freeze_filter=pi0_config.Pi0Config(
+            paligemma_variant="gemma_2b_lora"
+        ).get_freeze_filter(),
+        ema_decay=None,
+    ),
+    TrainConfig(
+        # This config is for fine-tuning pi05-DROID on a custom (smaller) DROID dataset.
+        # Here, we use LeRobot data format (like for all other fine-tuning examples)
+        # To convert your custom DROID dataset (<10s of hours) to LeRobot format, see examples/droid/convert_droid_data_to_lerobot.py
+        name="arx_delta_lora",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            action_dim=32,
+            action_horizon=16,
+            discrete_state_input=False,
+            paligemma_variant="gemma_2b_lora",
+        ),
+        data=LeRobotDROIDDataConfig(
+            # Replace with your custom DROID LeRobot dataset repo id.
+            repo_id="your_username/single_arm",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(
+                assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
+                asset_id="arx",
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        num_train_steps=30_000,
         batch_size=64,
         # wandb_enabled=False,
         freeze_filter=pi0_config.Pi0Config(
