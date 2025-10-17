@@ -363,9 +363,9 @@ class LeRobotARXDataConfig(DataConfigFactory):
             inputs=[
                 _transforms.RepackTransform(
                     {
-                        "observation/image": "observation/image",
-                        "observation/wrist_image": "observation/wrist_image",
-                        "observation/state": "observation/state",
+                        "observation/image": "exterior_image_1_left",
+                        "observation/wrist_image": "wrist_image_left",
+                        "observation/state": "state",
                         "actions": "actions",
                         "prompt": "prompt",
                     }
@@ -1074,10 +1074,10 @@ _CONFIGS = [
             discrete_state_input=False,
             paligemma_variant="gemma_2b_lora",
         ),
-        data=LeRobotDROIDDataConfig(
+        data=LeRobotARXDataConfig(
             # Replace with your custom DROID LeRobot dataset repo id.
-            repo_id="your_username/single_arm",
-            base_config=DataConfig(prompt_from_task=True),
+            repo_id="community/lemon_plate_dataset",
+            base_config=DataConfig(prompt_from_task=True, use_quantile_norm = True),
             assets=AssetsConfig(
                 assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
                 asset_id="arx",
@@ -1086,7 +1086,7 @@ _CONFIGS = [
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
         num_train_steps=30_000,
         batch_size=64,
-        # wandb_enabled=False,
+        wandb_enabled=False,
         freeze_filter=pi0_config.Pi0Config(
             paligemma_variant="gemma_2b_lora"
         ).get_freeze_filter(),
