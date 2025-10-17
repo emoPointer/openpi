@@ -460,12 +460,12 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
 @dataclasses.dataclass(frozen=True)
 class VisionOnlyLeRobotDROIDDataConfig(LeRobotDROIDDataConfig):
     """
-    一个只使用图像的 LeRobot DROID 数据加载器配置，它会移除所有本体感受状态信息。
+    一�?�?使用图像�? LeRobot DROID 数据加载器配�?，它会移除所有本体感受状态信�?�?
     """
 
     @override
     def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
-        # 1. 第一个转换：将数据从 LeRobot 的嵌套结构中提取出来，放到顶层。
+        # 1. �?一�?�?�?：将数据�? LeRobot 的嵌套结构中提取出来，放到顶层�?
         repack_transform = _transforms.Group(
             inputs=[
                 _transforms.RepackTransform(
@@ -473,15 +473,15 @@ class VisionOnlyLeRobotDROIDDataConfig(LeRobotDROIDDataConfig):
                         "observation/exterior_image_1_left": "exterior_image_1_left",
                         "observation/exterior_image_2_left": "exterior_image_2_left",
                         "observation/wrist_image_left": "wrist_image_left",
-                        "action": "actions",  # 假设 'action' 在数据集的顶层
+                        "action": "actions",  # 假�?? 'action' 在数�?集的顶层
                         "prompt": "prompt",
                     }
                 )
             ]
         )
 
-        # 2. 第二个转换：将提升到顶层的图像打包进模型期望的 'images' 字典中。
-        #    注意：我们在这里不再使用 droid_policy.DroidInputs，因为它会创建我们不想要的 state。
+        # 2. �?二个�?�?：将提升到顶层的图像打包进模型期望的 'images' 字典�?�?
+        #    注意：我�?在这里不再使�? droid_policy.DroidInputs，因为它会创建我�?不想要的 state�?
         data_transforms = _transforms.Group(
             inputs=[
                 _transforms.RepackTransform(
@@ -495,10 +495,10 @@ class VisionOnlyLeRobotDROIDDataConfig(LeRobotDROIDDataConfig):
             outputs=[droid_policy.DroidOutputs()],
         )
 
-        # 3. 获取标准的模型转换（例如 Tokenizer, ResizeImages 等）
+        # 3. 获取标准的模型转�?（例�? Tokenizer, ResizeImages 等）
         model_transforms = ModelTransformFactory()(model_config)
 
-        # 4. 组合所有配置并返回
+        # 4. 组合所有配�?并返�?
         return dataclasses.replace(
             self.create_base_config(assets_dirs, model_config),
             repack_transforms=repack_transform,
@@ -576,7 +576,7 @@ class TrainConfig:
     # device memory will be reduced but training could potentially be slower.
     # eg. if total device is 4 and fsdp devices is 2; then the model will shard to 2 devices and run
     # data parallel between 2 groups of devices.
-    fsdp_devices: int = 4
+    fsdp_devices: int = 2
 
     @property
     def assets_dirs(self) -> pathlib.Path:
@@ -984,6 +984,90 @@ _CONFIGS = [
         batch_size=64,
     ),
     TrainConfig(
+        name="tron2_finetune_position_lora",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            action_dim=32,  # pi05 is trained with 32-dim actions
+            action_horizon=64,  # tron2 is trained with 4-step action horizons
+            discrete_state_input=False,
+            paligemma_variant="gemma_2b_lora",
+        ),
+        data=LeRobotDROIDDataConfig(
+            # Replace with your custom DROID LeRobot dataset repo id.
+            repo_id="your_username/my_dual_arm_dataset_position",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(
+                assets_dir="/home/ZhouZhiqiang/openpi/assets/tron2_finetune/your_username",
+                asset_id="my_dual_arm_dataset_position",
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        num_train_steps=30_000,
+        batch_size=64,
+        # wandb_enabled=False,
+        freeze_filter=pi0_config.Pi0Config(
+            paligemma_variant="gemma_2b_lora"
+        ).get_freeze_filter(),
+        ema_decay=None,
+    ),
+    TrainConfig(
+        name="tron2_finetune_velocity_lora",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            action_dim=32,  # pi05 is trained with 32-dim actions
+            action_horizon=64,  # tron2 is trained with 4-step action horizons
+            discrete_state_input=False,
+            paligemma_variant="gemma_2b_lora",
+        ),
+        data=LeRobotDROIDDataConfig(
+            # Replace with your custom DROID LeRobot dataset repo id.
+            repo_id="your_username/my_dual_arm_dataset",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(
+                assets_dir="/home/ZhouZhiqiang/openpi/assets/tron2_finetune/your_username",
+                asset_id="my_dual_arm_dataset",
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        num_train_steps=30_000,
+        batch_size=64,
+        # wandb_enabled=False,
+        freeze_filter=pi0_config.Pi0Config(
+            paligemma_variant="gemma_2b_lora"
+        ).get_freeze_filter(),
+        ema_decay=None,
+    ),
+    TrainConfig(
+        # This config is for fine-tuning pi05-DROID on a custom (smaller) DROID dataset.
+        # Here, we use LeRobot data format (like for all other fine-tuning examples)
+        # To convert your custom DROID dataset (<10s of hours) to LeRobot format, see examples/droid/convert_droid_data_to_lerobot.py
+        name="tron2_finetune_lora",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            action_dim=32,
+            action_horizon=48,
+            discrete_state_input=False,
+            paligemma_variant="gemma_2b_lora",
+        ),
+        data=LeRobotDROIDDataConfig(
+            # Replace with your custom DROID LeRobot dataset repo id.
+            repo_id="your_username/single_arm",
+            base_config=DataConfig(prompt_from_task=True),
+            assets=AssetsConfig(
+                assets_dir="/home/ZhouZhiqiang/openpi/assets/tron2_finetune/your_username",
+                asset_id="single_arm",
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        num_train_steps=20_000,
+        batch_size=64,
+        # wandb_enabled=False,
+        freeze_filter=pi0_config.Pi0Config(
+            paligemma_variant="gemma_2b_lora"
+        ).get_freeze_filter(),
+        ema_decay=None,
+    ),
+    TrainConfig(
         # This config is for fine-tuning pi05-DROID on a custom (smaller) DROID dataset.
         # Here, we use LeRobot data format (like for all other fine-tuning examples)
         # To convert your custom DROID dataset (<10s of hours) to LeRobot format, see examples/droid/convert_droid_data_to_lerobot.py
@@ -1005,8 +1089,8 @@ _CONFIGS = [
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
         num_train_steps=30_000,
-        batch_size=32,
-        wandb_enabled=False,
+        batch_size=64,
+        # wandb_enabled=False,
     ),
     #
     # ALOHA Sim configs. This config is used to demonstrate how to train on a simple simulated environment.
