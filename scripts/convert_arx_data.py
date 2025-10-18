@@ -9,7 +9,6 @@ from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 from PIL import Image
 from tqdm import tqdm
 
-# --- 1. 设置HuggingFace LeRobot的缓存目录 ---
 HF_CACHE_DIR = Path.home() / ".cache/huggingface/lerobot"
 os.environ["HF_LEROBOT_HOME"] = str(HF_CACHE_DIR)
 HF_LEROBOT_HOME = Path(os.environ["HF_LEROBOT_HOME"])
@@ -20,10 +19,15 @@ def resize_image(image_array: np.ndarray, target_size: tuple[int, int] = (224, 2
     """
     使用Pillow库将图像数组的大小调整为目标尺寸。
     """
-    if image_array.shape[:2] == target_size:
-        return image_array
+    # --- 核心修正：在这里添加颜色通道转换 (BGR -> RGB) ---
+    # numpy数组的最后一个维度是颜色通道，我们将其顺序颠倒
+    image_rgb_array = image_array[:, :, ::-1]
+
+    if image_rgb_array.shape[:2] == target_size:
+        return image_rgb_array
     
-    image = Image.fromarray(image_array)
+    # 使用转换后正确的RGB数组创建Pillow图像
+    image = Image.fromarray(image_rgb_array)
     resized_image = image.resize((target_size[1], target_size[0]), Image.Resampling.LANCZOS)
     return np.array(resized_image)
 

@@ -16,3 +16,5 @@ CUDA_VISIBLE_DEVICES="0,1,3,4" XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 uv run scripts
 训练前需要修改fsdp_devices为对应的数量
 CUDA_VISIBLE_DEVICES="5,6" XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 uv run scripts/train.py tron2_finetune_test --exp-name=my_experiment5 --overwrite --batch_size
 =32
+
+注意/home/ZhouZhiqiang/openpi/src/openpi/training/data_loader.py 第189行是否使用use_quantiles
