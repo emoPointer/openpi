@@ -1079,8 +1079,8 @@ _CONFIGS = [
             repo_id="community/lemon_plate_dataset",
             base_config=DataConfig(prompt_from_task=True, use_quantile_norm = True),
             assets=AssetsConfig(
-                assets_dir="gs://openpi-assets/checkpoints/pi0_base/assets",
-                asset_id="arx",
+                assets_dir="/home/ZhouZhiqiang/openpi/assets/arx_delta_lora/community",
+                asset_id="lemon_plate_dataset",
             ),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
