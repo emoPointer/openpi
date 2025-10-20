@@ -57,9 +57,9 @@ def send_data(conn, payload):
 # ================= 主函数 =================
 @click.command()
 @click.option("--config_name", default="arx_delta_lora", help="OpenPI中的模型配置名称。")
-@click.option("--checkpoint", "-c", default="/home/arxpro/zhiqiangzhou/openpi/checkpoints/arx_delta_lora/arx_delta_lora/29999", help="模型检查点文件的路径。")
+@click.option("--checkpoint", "-c", default="/home/ZhouZhiqiang/openpi/checkpoints/arx_delta_lora/arx_delta_lora_norm/29999", help="模型检查点文件的路径。")
 @click.option("--host", default="0.0.0.0", help="服务器监听的IP地址。'0.0.0.0' 表示监听所有可用接口。")
-@click.option("--port", default=8000, type=int, help="服务器监听的端口号。")
+@click.option("--port", default=8987, type=int, help="服务器监听的端口号。")
 def main(config_name, checkpoint, host, port):
     """
     主函数：加载模型，启动服务器，处理推理请求。
@@ -88,11 +88,13 @@ def main(config_name, checkpoint, host, port):
                 print(f"客户端 {addr} 已连接。")
                 try:
                     while True:
-                        # --- 3. 接收客户端数据 ---
+                        print("--- 等待接收新的客户端数据 ---") # 新增
                         observation_dict = receive_data(conn)
                         if observation_dict is None:
                             print(f"客户端 {addr} 断开连接。")
                             break
+
+                        print(f"--- 成功接收并反序列化数据，准备推理 ---") # 新增
                         
                         # --- 4. 执行策略推理 ---
                         try:

@@ -1079,8 +1079,10 @@ _CONFIGS = [
             repo_id="community/lemon_plate_dataset",
             base_config=DataConfig(prompt_from_task=True, use_quantile_norm = True),
             assets=AssetsConfig(
-                assets_dir="/home/ZhouZhiqiang/openpi/assets/arx_delta_lora/community",
-                asset_id="lemon_plate_dataset",
+                # assets_dir="/home/ZhouZhiqiang/openpi/assets/arx_delta_lora/community",
+                # asset_id="lemon_plate_dataset",
+                assets_dir="gs://openpi-assets/checkpoints/pi05_base/assets",
+                asset_id="arx",
             ),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
@@ -1091,6 +1093,31 @@ _CONFIGS = [
             paligemma_variant="gemma_2b_lora"
         ).get_freeze_filter(),
         ema_decay=None,
+    ),
+    TrainConfig(
+        # This config is for fine-tuning pi05-DROID on a custom (smaller) DROID dataset.
+        # Here, we use LeRobot data format (like for all other fine-tuning examples)
+        # To convert your custom DROID dataset (<10s of hours) to LeRobot format, see examples/droid/convert_droid_data_to_lerobot.py
+        name="arx_delta_full",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            action_dim=32,
+            action_horizon=16,
+            discrete_state_input=False,
+        ),
+        data=LeRobotARXDataConfig(
+            # Replace with your custom DROID LeRobot dataset repo id.
+            repo_id="community/lemon_plate_dataset",
+            base_config=DataConfig(prompt_from_task=True, use_quantile_norm = True),
+            assets=AssetsConfig(
+                assets_dir="gs://openpi-assets/checkpoints/pi05_base/assets",
+                asset_id="arx",
+            ),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
+        num_train_steps=30_000,
+        batch_size=64,
+        wandb_enabled=False,
     ),
     TrainConfig(
         # This config is for fine-tuning pi05-DROID on a custom (smaller) DROID dataset.
