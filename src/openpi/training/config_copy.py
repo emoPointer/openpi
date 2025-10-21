@@ -178,18 +178,12 @@ class DataConfigFactory(abc.ABC):
     def create_base_config(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
         repo_id = self.repo_id if self.repo_id is not tyro.MISSING else None
         asset_id = self.assets.asset_id or repo_id
-        base = self.base_config or DataConfig()
-        if self.base_config is not None:
-            use_quant = base.use_quantile_norm
-        else:
-            use_quant = model_config.model_type != ModelType.PI0
-
         return dataclasses.replace(
-            base,
+            self.base_config or DataConfig(),
             repo_id=repo_id,
             asset_id=asset_id,
             norm_stats=self._load_norm_stats(epath.Path(self.assets.assets_dir or assets_dirs), asset_id),
-            use_quantile_norm=use_quant,
+            use_quantile_norm=model_config.model_type != ModelType.PI0,
         )
 
     def _load_norm_stats(self, assets_dir: epath.Path, asset_id: str | None) -> dict[str, _transforms.NormStats] | None:
@@ -493,10 +487,10 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
         )
 
         # # add DeltaActions
-        data_transforms = data_transforms.push(
-            inputs=[_transforms.DeltaActions(_transforms.make_bool_mask(14, -2))],
-            outputs=[_transforms.AbsoluteActions(_transforms.make_bool_mask(14, -2))],
-        )
+        # data_transforms = data_transforms.push(
+        #     inputs=[_transforms.DeltaActions(_transforms.make_bool_mask(14, -2))],
+        #     outputs=[_transforms.AbsoluteActions(_transforms.make_bool_mask(14, -2))],
+        # )
         model_transforms = ModelTransformFactory()(model_config)
 
         return dataclasses.replace(
@@ -1053,7 +1047,7 @@ _CONFIGS = [
         data=LeRobotDROIDDataConfig(
             # Replace with your custom DROID LeRobot dataset repo id.
             repo_id="your_username/single_arm",
-            base_config=DataConfig(prompt_from_task=True, use_quantile_norm = False),
+            base_config=DataConfig(prompt_from_task=True),
             assets=AssetsConfig(
                 assets_dir="/home/ZhouZhiqiang/openpi/assets/tron2_finetune/your_username",
                 asset_id="single_arm",
@@ -1083,12 +1077,12 @@ _CONFIGS = [
         data=LeRobotARXDataConfig(
             # Replace with your custom DROID LeRobot dataset repo id.
             repo_id="community/lemon_plate_dataset",
-            base_config=DataConfig(prompt_from_task=True, use_quantile_norm = False),
+            base_config=DataConfig(prompt_from_task=True, use_quantile_norm = True),
             assets=AssetsConfig(
-                assets_dir="/home/ZhouZhiqiang/openpi/assets/arx_delta_lora/community",
-                asset_id="lemon_plate_dataset",
-                # assets_dir="gs://openpi-assets/checkpoints/pi05_base/assets",
-                # asset_id="arx",
+                # assets_dir="/home/ZhouZhiqiang/openpi/assets/arx_delta_lora/community",
+                # asset_id="lemon_plate_dataset",
+                assets_dir="gs://openpi-assets/checkpoints/pi05_base/assets",
+                asset_id="arx",
             ),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
