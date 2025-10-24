@@ -494,8 +494,8 @@ class LeRobotDROIDDataConfig(DataConfigFactory):
 
         # # add DeltaActions
         data_transforms = data_transforms.push(
-            inputs=[_transforms.DeltaActions(_transforms.make_bool_mask(14, -2))],
-            outputs=[_transforms.AbsoluteActions(_transforms.make_bool_mask(14, -2))],
+            inputs=[_transforms.DeltaActions(_transforms.make_bool_mask(7, -1))],
+            outputs=[_transforms.AbsoluteActions(_transforms.make_bool_mask(7, -1))],
         )
         model_transforms = ModelTransformFactory()(model_config)
 
@@ -1055,12 +1055,12 @@ _CONFIGS = [
             repo_id="your_username/single_arm",
             base_config=DataConfig(prompt_from_task=True, use_quantile_norm = False),
             assets=AssetsConfig(
-                assets_dir="/home/ZhouZhiqiang/openpi/assets/tron2_finetune/your_username",
+                assets_dir="/home/ZhouZhiqiang/openpi/assets/tron2_finetune_lora/your_username",
                 asset_id="single_arm",
             ),
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
-        num_train_steps=20_000,
+        num_train_steps=30_000,
         batch_size=64,
         # wandb_enabled=False,
         freeze_filter=pi0_config.Pi0Config(

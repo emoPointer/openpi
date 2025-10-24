@@ -571,7 +571,7 @@ class TrainConfig:
     # device memory will be reduced but training could potentially be slower.
     # eg. if total device is 4 and fsdp devices is 2; then the model will shard to 2 devices and run
     # data parallel between 2 groups of devices.
-    fsdp_devices: int = 4
+    fsdp_devices: int = 2
 
     @property
     def assets_dirs(self) -> pathlib.Path:
@@ -1056,7 +1056,7 @@ _CONFIGS = [
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi05_base/params"),
         num_train_steps=20_000,
         batch_size=64,
-        # wandb_enabled=False,
+        wandb_enabled=False,
         freeze_filter=pi0_config.Pi0Config(
             paligemma_variant="gemma_2b_lora"
         ).get_freeze_filter(),

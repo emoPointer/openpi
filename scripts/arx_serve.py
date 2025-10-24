@@ -57,7 +57,7 @@ def send_data(conn, payload):
 # ================= 主函数 =================
 @click.command()
 @click.option("--config_name", default="arx_delta_lora", help="OpenPI中的模型配置名称。")
-@click.option("--checkpoint", "-c", default="/home/ZhouZhiqiang/openpi/checkpoints/arx_delta_lora/arx_delta_lora_norm/29999", help="模型检查点文件的路径。")
+@click.option("--checkpoint", "-c", default="/home/ZhouZhiqiang/openpi/checkpoints/arx_delta_lora/arx_delta_lora_norm/25000", help="模型检查点文件的路径。")
 @click.option("--host", default="0.0.0.0", help="服务器监听的IP地址。'0.0.0.0' 表示监听所有可用接口。")
 @click.option("--port", default=8987, type=int, help="服务器监听的端口号。")
 def main(config_name, checkpoint, host, port):
