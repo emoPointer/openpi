@@ -18,3 +18,5 @@ CUDA_VISIBLE_DEVICES="5,6" XLA_PYTHON_CLIENT_MEM_FRACTION=0.9 uv run scripts/tra
 =32
 
 注意/home/ZhouZhiqiang/openpi/src/openpi/training/data_loader.py 第189行是否使用use_quantiles
+### notice
+tron2部署代码需要安装tron2对应的sdk
